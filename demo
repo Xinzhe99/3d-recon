@@ -1,0 +1,42 @@
+import plotly.graph_objs as go
+import plotly.offline as pyo
+import numpy as np
+import re
+import glob
+import cv2
+import matplotlib.pyplot as plt
+
+decitionmap_index=np.load(r'E:\Microscopic_image_stack_fusion\result\3d_refff\decision_map_np2023_04_18_22_24_19.npy')
+pic_sequence_list = glob.glob(r'C:\Users\dell\Desktop\imagestacks\imagestacks\The data set used for the experiments(original size)\*.jpg')
+pic_sequence_list.sort(
+    key=lambda x: int(str(re.findall("\d+", x.split('/')[-1])[-1])))  # Sort by the number in the file name
+img_cv_list = [None] * (len(pic_sequence_list))
+
+for i in range(len(pic_sequence_list)):
+    img_cv_list[i] = cv2.imread(pic_sequence_list[i])
+    img_cv_list[i] = cv2.resize(img_cv_list[i], (decitionmap_index.shape[1], decitionmap_index.shape[0]))
+
+X, Y = np.meshgrid(np.arange(decitionmap_index.shape[1]), np.arange(decitionmap_index.shape[0]))
+color_map=np.zeros((decitionmap_index.shape[0],decitionmap_index.shape[1],img_cv_list[0].shape[2]))
+
+for i in range(decitionmap_index.shape[0]):
+    for j in range(decitionmap_index.shape[1]):
+        for c in range(img_cv_list[0].shape[2]):
+            seq=decitionmap_index[i][j]
+            color_map[i,j,c]=img_cv_list[seq][i,j,c]/255.0
+color_map=np.reshape(color_map,(decitionmap_index.shape[0]*decitionmap_index.shape[1],3))
+
+
+fig = plt.figure()
+ax = fig.add_subplot(111, projection='3d')
+ax.scatter(X,Y,decitionmap_index,c=color_map, marker='.',s=1)
+ax.set_zlabel('depth')
+fig.show()
+#可交互式界面
+plotly_fig = go.Figure(data=go.Scatter3d(x=X.ravel(), y=Y.ravel(), z=decitionmap_index.ravel(),
+                                          mode='markers', marker=dict(size=1, color=color_map)))
+plotly_fig.update_layout(scene=dict(xaxis_title='X Label', yaxis_title='Y Label', zaxis_title='Depth'),
+                          margin=dict(l=0, r=0, b=0, t=0))
+
+pyo.plot(plotly_fig, filename='myplot.html')
+
